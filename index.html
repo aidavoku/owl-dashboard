@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OWL Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a12;--card:#12121e;--border:#2a2a3a;--pink:#ff69b4;--pink-dark:#ff1493;--text:#e0e0e0;--muted:#666;--green:#44ff88;--red:#ff4444;--blue:#6bb5ff}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:1.5rem;color:var(--pink);letter-spacing:.05em}
+.header .logo{font-size:2rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color .2s}
+.card:hover{border-color:var(--pink)}
+.card h2{font-size:1rem;color:var(--pink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card h2 .icon{font-size:1.2rem}
+.item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+.item:last-child{border-bottom:none}
+.item .label{font-size:.85rem;color:var(--muted)}
+.item .value{font-size:.85rem;color:var(--text);font-weight:500}
+.item .status{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
+.status.online{background:rgba(68,255,136,.15);color:var(--green)}
+.status.offline{background:rgba(255,68,68,.15);color:var(--red)}
+.status.warn{background:rgba(255,170,0,.15);color:#ffaa00}
+.btn{background:linear-gradient(135deg,var(--pink),var(--pink-dark));border:none;color:#fff;padding:6px 14px;font-size:.75rem;border-radius:6px;cursor:pointer;transition:transform .15s}
+.btn:hover{transform:scale(1.05)}
+.btn:active{transform:scale(.95)}
+.btn.secondary{background:linear-gradient(135deg,#333,#222)}
+.btn.danger{background:linear-gradient(135deg,#ff4444,#cc0000)}
+.full{grid-column:1/-1}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{text-align:left;padding:8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:600}
+td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
+td:first-child{color:var(--text)}
+td .mono{font-family:monospace;font-size:.75rem;word-break:break-all}
+.add-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.add-form input{flex:1;min-width:120px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:.8rem}
+.add-form input:focus{outline:none;border-color:var(--pink)}
+.add-form input::placeholder{color:var(--muted)}
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h3{color:var(--pink);margin-bottom:16px}
+.modal .close{float:right;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer}
+.modal .close:hover{color:#fff}
+.description{font-size:.75rem;color:var(--muted);margin-top:8px;line-height:1.5}
+.server-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:8px}
+.stat{background:rgba(255,255,255,.03);border-radius:8px;padding:10px;text-align:center}
+.stat .val{font-size:1.2rem;font-weight:700;color:var(--pink)}
+.stat .lbl{font-size:.65rem;color:var(--muted);margin-top:2px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="logo">⚡</span>
+  <h1>OWL Dashboard</h1>
+</div>
+
+<div class="grid">
+
+  <!-- Server Status -->
+  <div class="card full">
+    <h2><span class="icon">🖥️</span> Server Status</h2>
+    <div class="server-stats" id="serverStats">
+      <div class="stat"><div class="val" id="cpuVal">--</div><div class="lbl">CPU</div></div>
+      <div class="stat"><div class="val" id="memVal">--</div><div class="lbl">RAM</div></div>
+      <div class="stat"><div class="val" id="diskVal">--</div><div class="lbl">Disk</div></div>
+      <div class="stat"><div class="val" id="upVal">--</div><div class="lbl">Uptime</div></div>
+    </div>
+  </div>
+
+  <!-- Projects -->
+  <div class="card">
+    <h2><span class="icon">📂</span> Projects</h2>
+    <div id="projectsList"></div>
+  </div>
+
+  <!-- Services -->
+  <div class="card">
+    <h2><span class="icon">⚙️</span> Services</h2>
+    <div id="servicesList"></div>
+  </div>
+
+  <!-- Secrets Vault -->
+  <div class="card full">
+    <h2><span class="icon">🔐</span> Secrets Vault <span style="font-size:.7rem;color:var(--muted);font-weight:400">— End-to-end encrypted</span></h2>
+    <p class="description">Hesla a tokeny se šifrují ve tvém prohlížeči pomocí AES-256. Server nevidí plaintext. K šifrování potřebuješ master heslo.</p>
+    
+    <div id="vaultLocked" style="display:none">
+      <div class="add-form">
+        <input type="password" id="masterPass" placeholder="Master password">
+        <button class="btn" onclick="unlockVault()">🔓 Unlock</button>
+      </div>
+    </div>
+    
+    <div id="vaultUnlocked" style="display:none">
+      <table>
+        <thead><tr><th>Service</th><th>Username/Email</th><th>Password</th><th>Actions</th></tr></thead>
+        <tbody id="secretsTable"></tbody>
+      </table>
+      <div class="add-form" style="margin-top:12px">
+        <input type="text" id="newServiceName" placeholder="Service name">
+        <input type="text" id="newServiceUser" placeholder="Username">
+        <input type="text" id="newServicePass" placeholder="Password / Token">
+        <button class="btn" onclick="addSecret()">+ Add</button>
+        <button class="btn secondary" onclick="lockVault()">🔒 Lock</button>
+      </div>
+    </div>
+    
+    <div id="vaultSetup" style="display:none">
+      <p class="description">Nastav své master heslo pro šifrování secrets:</p>
+      <div class="add-form">
+        <input type="password" id="setupPass" placeholder="New master password">
+        <input type="password" id="setupPassConfirm" placeholder="Confirm password">
+        <button class="btn" onclick="setupVault()">🔐 Setup & Encrypt</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ============================
+// ENCRYPTION
+// ============================
+async function deriveKey(password, salt) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt, iterations:100000, hash:'SHA-256'}, keyMaterial, {name:'AES-GCM', length:256}, false, ['encrypt', 'decrypt']);
+}
+
+async function encrypt(data, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const enc = new TextEncoder();
+  const ciphertext = await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, enc.encode(JSON.stringify(data)));
+  const combined = new Uint8Array(salt.length + iv.length + ciphertext.byteLength);
+  combined.set(salt, 0);
+  combined.set(iv, salt.length);
+  combined.set(new Uint8Array(ciphertext), salt.length + iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+async function decrypt(encryptedData, password) {
+  const combined = Uint8Array.from(atob(encryptedData), c => c.charCodeAt(0));
+  const salt = combined.slice(0, 16);
+  const iv = combined.slice(16, 28);
+  const ciphertext = combined.slice(28);
+  const key = await deriveKey(password, salt);
+  const decrypted = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ciphertext);
+  return JSON.parse(new TextDecoder().decode(decrypted));
+}
+
+// ============================
+// SERVER DATA (injected by OWL)
+// ============================
+const SERVER_DATA = __SERVER_DATA__;
+
+// ============================
+// DASHBOARD LOGIC
+// ============================
+let masterKey = null;
+let secrets = [];
+
+function init() {
+  renderProjects();
+  renderServices();
+  renderServerStats();
+  checkVault();
+}
+
+function renderServerStats() {
+  const d = SERVER_DATA?.server || {};
+  document.getElementById('cpuVal').textContent = d.cpu || '--';
+  document.getElementById('memVal').textContent = d.mem || '--';
+  document.getElementById('diskVal').textContent = d.disk || '--';
+  document.getElementById('upVal').textContent = d.uptime || '--';
+}
+
+function renderProjects() {
+  const projects = SERVER_DATA?.projects || [];
+  const el = document.getElementById('projectsList');
+  if (!projects.length) {
+    el.innerHTML = '<div class="label" style="padding:8px 0">No projects yet</div>';
+    return;
+  }
+  el.innerHTML = projects.map(p => `
+    <div class="item">
+      <div>
+        <div style="font-weight:500;font-size:.85rem">${p.name}</div>
+        <div class="label">${p.path}</div>
+      </div>
+      <span class="status ${p.status === 'active' ? 'online' : 'offline'}">${p.status}</span>
+    </div>
+  `).join('');
+}
+
+function renderServices() {
+  const services = SERVER_DATA?.services || [];
+  const el = document.getElementById('servicesList');
+  if (!services.length) {
+    el.innerHTML = '<div class="label" style="padding:8px 0">No services configured</div>';
+    return;
+  }
+  el.innerHTML = services.map(s => `
+    <div class="item">
+      <div>
+        <div style="font-weight:500;font-size:.85rem">${s.name}</div>
+        <div class="label">${s.type}</div>
+      </div>
+      <span class="status ${s.status === 'running' ? 'online' : 'offline'}">${s.status}</span>
+    </div>
+  `).join('');
+}
+
+// ============================
+// VAULT
+// ============================
+function checkVault() {
+  const stored = localStorage.getItem('owl_vault');
+  if (stored) {
+    document.getElementById('vaultLocked').style.display = '';
+    document.getElementById('vaultUnlocked').style.display = 'none';
+    document.getElementById('vaultSetup').style.display = 'none';
+  } else {
+    document.getElementById('vaultLocked').style.display = 'none';
+    document.getElementById('vaultUnlocked').style.display = 'none';
+    document.getElementById('vaultSetup').style.display = '';
+  }
+}
+
+async function setupVault() {
+  const p1 = document.getElementById('setupPass').value;
+  const p2 = document.getElementById('setupPassConfirm').value;
+  if (!p1 || p1 !== p2) { alert('Passwords do not match'); return; }
+  if (p1.length < 8) { alert('Password must be at least 8 characters'); return; }
+  masterKey = p1;
+  secrets = [];
+  await saveVault();
+  document.getElementById('vaultSetup').style.display = 'none';
+  document.getElementById('vaultUnlocked').style.display = '';
+  renderSecrets();
+}
+
+async function unlockVault() {
+  const pass = document.getElementById('masterPass').value;
+  if (!pass) return;
+  try {
+    const stored = localStorage.getItem('owl_vault');
+    if (stored) {
+      secrets = await decrypt(stored, pass);
+    }
+    masterKey = pass;
+    document.getElementById('vaultLocked').style.display = 'none';
+    document.getElementById('vaultUnlocked').style.display = '';
+    renderSecrets();
+  } catch(e) {
+    alert('Wrong password');
+  }
+}
+
+function lockVault() {
+  masterKey = null;
+  secrets = [];
+  document.getElementById('vaultLocked').style.display = '';
+  document.getElementById('vaultUnlocked').style.display = 'none';
+  document.getElementById('masterPass').value = '';
+}
+
+async function saveVault() {
+  if (!masterKey || !secrets.length) {
+    localStorage.removeItem('owl_vault');
+    return;
+  }
+  const encrypted = await encrypt(secrets, masterKey);
+  localStorage.setItem('owl_vault', encrypted);
+}
+
+async function addSecret() {
+  if (!masterKey) return;
+  const name = document.getElementById('newServiceName').value.trim();
+  const user = document.getElementById('newServiceUser').value.trim();
+  const pass = document.getElementById('newServicePass').value.trim();
+  if (!name) return;
+  secrets.push({name, user, pass, added: new Date().toISOString()});
+  await saveVault();
+  document.getElementById('newServiceName').value = '';
+  document.getElementById('newServiceUser').value = '';
+  document.getElementById('newServicePass').value = '';
+  renderSecrets();
+}
+
+async function deleteSecret(i) {
+  secrets.splice(i, 1);
+  await saveVault();
+  renderSecrets();
+}
+
+function renderSecrets() {
+  const tbody = document.getElementById('secretsTable');
+  if (!secrets.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No secrets stored</td></tr>';
+    return;
+  }
+  tbody.innerHTML = secrets.map((s, i) => `
+    <tr>
+      <td><strong>${s.name}</strong></td>
+      <td class="mono">${s.user || '—'}</td>
+      <td><span class="mono" id="pass${i}">••••••••</span> <button class="btn" style="padding:2px 6px;font-size:.65rem" onclick="togglePass(${i},'${s.pass?.replace(/'/g,"\\'")}')">👁</button></td>
+      <td><button class="btn danger" style="padding:2px 6px;font-size:.65rem" onclick="deleteSecret(${i})">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function togglePass(i, pass) {
+  const el = document.getElementById('pass' + i);
+  el.textContent = el.textContent === '••••••••' ? pass : '••••••••';
+}
+
+// Init
+init();
+</script>
+</body>
+</html>
