@@ -120,6 +120,7 @@ let data=JSON.parse(localStorage.getItem('owl_data')||'{}');
 if(!data.projects) data={server:{cpu:'--',mem:'--',disk:'--',uptime:'--',info:'Loading'},projects:[{name:'PAPER R6',path:'/web-sypes',status:'active'},{name:'Dashboard',path:'/dashboard',status:'active'}],services:[{name:'OpenClaw Gateway',type:'telegram',status:'online'},{name:'HTTP Server',type:'http',status:'online'},{name:'CF Tunnel',type:'tunnel',status:'online'}]};
 let secrets=JSON.parse(localStorage.getItem('owl_vault')||'[]');
 let cmdLog=[];
+let processedIds=new Set(JSON.parse(localStorage.getItem('owl_processed')||'[]'));
 
 const OWL_PUB_KEY=`-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA62Hd8yv8VJd1oL77aW6r
@@ -173,7 +174,7 @@ async function sendToOwl(){if(!secrets.length){alert('No secrets');return;}addLo
 async function checkConn(){try{const r=await fetch(API+'/api/ping');if(r.ok){document.getElementById('connDot').style.color='var(--green)';document.getElementById('connText').textContent='connected';return true;}}catch(e){}document.getElementById('connDot').style.color='var(--yellow)';document.getElementById('connText').textContent='offline';return false;}
 
 // Poll for results
-async function poll(){try{const r=await fetch(API+'/api/results');if(r.ok){const d=await r.json();if(d.results&&d.results.length){d.results.forEach(res=>{addLog(res.ok?'ok':'err','['+res.cmdId+'] '+res.output);});}}}catch(e){}}
+async function poll(){try{const r=await fetch(API+'/api/results');if(r.ok){const d=await r.json();if(d.results&&d.results.length){d.results.forEach(res=>{if(!processedIds.has(res.cmdId)){processedIds.add(res.cmdId);addLog(res.ok?'ok':'err','['+res.cmdId+'] '+res.output);if(res.cmdId.startsWith('vault-')){addLog('ok','🔐 Secrets received and decrypted by OWL');}}localStorage.setItem('owl_processed',JSON.stringify([...processedIds].slice(-100)));});}}}catch(e){}}
 
 render();
 checkConn();
