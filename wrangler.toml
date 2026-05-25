@@ -1,9 +1,6 @@
-name = "owl-dashboard"
-main = "worker/index.js"
+name = "owl-dashboard-api"
+main = "api/worker.js"
 compatibility_date = "2025-01-01"
 
 [site]
 bucket = "."
-
-[env.production]
-name = "owl-dashboard"

@@ -15,15 +15,12 @@ body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,san
 .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;transition:border-color .2s}
 .card:hover{border-color:var(--pink)}
 .card h2{font-size:1rem;color:var(--pink);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.card h2 .icon{font-size:1.2rem}
 .item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 .item:last-child{border-bottom:none}
-.item .label{font-size:.85rem;color:var(--muted)}
-.item .value{font-size:.85rem;color:var(--text);font-weight:500}
+.label{font-size:.85rem;color:var(--muted)}
 .status{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.7rem;font-weight:600}
 .status.online{background:rgba(68,255,136,.15);color:var(--green)}
 .status.offline{background:rgba(255,68,68,.15);color:var(--red)}
-.status.warn{background:rgba(255,170,0,.15);color:var(--yellow)}
 .btn{background:linear-gradient(135deg,var(--pink),var(--pink-dark));border:none;color:#fff;padding:6px 14px;font-size:.75rem;border-radius:6px;cursor:pointer;transition:transform .15s}
 .btn:hover{transform:scale(1.05)}
 .btn:active{transform:scale(.95)}
@@ -35,17 +32,28 @@ th{text-align:left;padding:8px;border-bottom:1px solid var(--border);color:var(-
 td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
 .mono{font-family:'Courier New',monospace;font-size:.75rem}
 .add-form{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.add-form input,.add-form select{flex:1;min-width:100px;background:rgba(255,255,255,.05);border:1px solid var(--border);color:#fff;padding:6px 10px;border-radius:6px;font-size:.8rem}
-.add-form input:focus,.add-form select:focus{outline:none;border-color:var(--pink)}
-.add-form input::placeholder{color:var(--muted)}
+.add-form input,.add-form select,.add-form textarea{
+  flex:1;min-width:100px;background:rgba(255,255,255,.05);border:1px solid var(--border);
+  color:#fff;padding:6px 10px;border-radius:6px;font-size:.8rem;font-family:inherit
+}
+.add-form input:focus,.add-form select:focus,.add-form textarea:focus{outline:none;border-color:var(--pink)}
+.add-form textarea{min-height:60px;resize:vertical}
 .server-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;margin-bottom:8px}
 .stat{background:rgba(255,255,255,.03);border-radius:8px;padding:10px;text-align:center}
 .stat .val{font-size:1.1rem;font-weight:700;color:var(--pink)}
 .stat .lbl{font-size:.65rem;color:var(--muted);margin-top:2px}
 .desc{font-size:.75rem;color:var(--muted);margin-top:8px;line-height:1.5}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--green);color:#000;padding:10px 20px;border-radius:8px;font-size:.85rem;font-weight:600;z-index:99;animation:fadeIn .3s}
-@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .pass-hidden{color:var(--muted);letter-spacing:2px}
+.log{background:rgba(0,0,0,.3);border-radius:8px;padding:10px;max-height:200px;overflow-y:auto;font-family:'Courier New',monospace;font-size:.7rem;line-height:1.6}
+.log .time{color:var(--muted)}
+.log .info{color:var(--blue)}
+.log .ok{color:var(--green)}
+.log .err{color:var(--red)}
+.tabs{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:6px 12px;border-radius:6px;font-size:.75rem;cursor:pointer;background:rgba(255,255,255,.05);border:1px solid var(--border);color:var(--muted)}
+.tab.active{background:var(--pink);color:#fff;border-color:var(--pink)}
+.tab-content{display:none}
+.tab-content.active{display:block}
 </style>
 </head>
 <body>
@@ -54,7 +62,7 @@ td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
   <span class="logo">⚡</span>
   <div>
     <h1>OWL Dashboard</h1>
-    <div style="font-size:.7rem;color:var(--muted)">Personal Assistant by DAVOKU</div>
+    <div style="font-size:.7rem;color:var(--muted)">Personal Assistant by DAVOKU • <span id="connStatus">●</span> <span id="connText">connecting...</span></div>
   </div>
 </div>
 
@@ -62,20 +70,47 @@ td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
 
   <!-- Server Status -->
   <div class="card full">
-    <h2><span class="icon">🖥️</span> Server Status</h2>
+    <h2>🖥️ Server Status</h2>
     <div class="server-stats">
       <div class="stat"><div class="val" id="cpuVal">--</div><div class="lbl">CPU</div></div>
       <div class="stat"><div class="val" id="memVal">--</div><div class="lbl">RAM</div></div>
       <div class="stat"><div class="val" id="diskVal">--</div><div class="lbl">Disk</div></div>
       <div class="stat"><div class="val" id="upVal">--</div><div class="lbl">Uptime</div></div>
-      <div class="stat"><div class="val" id="loVal">--</div><div class="lbl">Load</div></div>
     </div>
     <div style="margin-top:8px;font-size:.75rem;color:var(--muted)" id="serverInfo"></div>
   </div>
 
+  <!-- Command Center -->
+  <div class="card full">
+    <h2>💬 Command Center</h2>
+    <p class="desc">Send commands to OWL. They'll be queued and executed. Results appear in the log.</p>
+    <div class="add-form">
+      <select id="cmdType" style="flex:0;min-width:120px">
+        <option value="exec">Shell Command</option>
+        <option value="read">Read File</option>
+        <option value="write">Write File</option>
+        <option value="deploy">Deploy Project</option>
+        <option value="tunnel">Manage Tunnel</option>
+        <option value="custom">Custom Message</option>
+      </select>
+      <input type="text" id="cmdInput" placeholder="Enter command or message..." style="flex:2">
+      <button class="btn" onclick="sendCommand()">Send ⚡</button>
+    </div>
+    <div style="margin-top:8px">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('log',this)">📋 Log</div>
+        <div class="tab" onclick="switchTab('queue',this)">📨 Queue</div>
+        <div class="tab" onclick="switchTab('output',this)">📤 Output</div>
+      </div>
+      <div id="logTab" class="tab-content active"><div class="log" id="cmdLog"><span class="info">Waiting for commands...</span></div></div>
+      <div id="queueTab" class="tab-content"><div id="queueList" style="font-size:.8rem;color:var(--muted)">Queue empty</div></div>
+      <div id="outputTab" class="tab-content"><div id="outputArea" class="log">No output yet</div></div>
+    </div>
+  </div>
+
   <!-- Projects -->
   <div class="card">
-    <h2><span class="icon">📂</span> Projects</h2>
+    <h2>📂 Projects</h2>
     <div id="projectsList"></div>
     <div class="add-form">
       <input type="text" id="newProjName" placeholder="Project name">
@@ -86,7 +121,7 @@ td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
 
   <!-- Services -->
   <div class="card">
-    <h2><span class="icon">⚙️</span> Services & Access</h2>
+    <h2>⚙️ Services & Access</h2>
     <div id="servicesList"></div>
     <div class="add-form">
       <input type="text" id="newSvcName" placeholder="Service name">
@@ -97,34 +132,27 @@ td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
 
   <!-- Secrets Vault -->
   <div class="card full">
-    <h2><span class="icon">🔐</span> Secrets Vault</h2>
-    <p class="desc">End-to-end encrypted. Passwords are encrypted in your browser with AES-256-GCM. The server never sees plaintext. Data is stored in your browser's localStorage.</p>
-    
+    <h2>🔐 Secrets Vault</h2>
+    <p class="desc">End-to-end encrypted with AES-256-GCM. Stored in your browser only.</p>
     <div id="vaultSetup">
-      <p class="desc" style="margin-top:12px">Set up your master password to start storing secrets:</p>
       <div class="add-form">
         <input type="password" id="setupPass" placeholder="Master password (min 8 chars)">
-        <input type="password" id="setupPassConfirm" placeholder="Confirm password">
-        <button class="btn" onclick="setupVault()">🔐 Setup Vault</button>
+        <input type="password" id="setupPassConfirm" placeholder="Confirm">
+        <button class="btn" onclick="setupVault()">🔐 Setup</button>
       </div>
     </div>
-    
     <div id="vaultLocked" style="display:none">
       <div class="add-form">
         <input type="password" id="masterPass" placeholder="Master password">
         <button class="btn" onclick="unlockVault()">🔓 Unlock</button>
       </div>
     </div>
-    
     <div id="vaultUnlocked" style="display:none">
-      <table>
-        <thead><tr><th>Service</th><th>Username</th><th>Password</th><th>Added</th><th></th></tr></thead>
-        <tbody id="secretsTable"></tbody>
-      </table>
+      <table><thead><tr><th>Service</th><th>Username</th><th>Password</th><th></th></tr></thead><tbody id="secretsTable"></tbody></table>
       <div class="add-form" style="margin-top:12px">
-        <input type="text" id="newSecName" placeholder="Service name">
-        <input type="text" id="newSecUser" placeholder="Username / Email">
-        <input type="password" id="newSecPass" placeholder="Password / Token">
+        <input type="text" id="newSecName" placeholder="Service">
+        <input type="text" id="newSecUser" placeholder="Username">
+        <input type="password" id="newSecPass" placeholder="Password">
         <button class="btn" onclick="addSecret()">+ Add</button>
         <button class="btn secondary" onclick="lockVault()">🔒 Lock</button>
       </div>
@@ -134,199 +162,182 @@ td{padding:8px;border-bottom:1px solid rgba(255,255,255,.03)}
 </div>
 
 <script>
-// ===== DATA =====
-const DEFAULT_DATA = {
-  server: { cpu: '12%', mem: '2.1/8GB', disk: '34%', uptime: '3d 14h', load: '0.42', info: 'kalitest • Linux x64 • Europe/Prague' },
-  projects: [
-    { name: 'PAPER R6', path: '/web-sypes', status: 'active', desc: '2D turn-based tactical shooter' },
-    { name: 'OWL Dashboard', path: '/dashboard', status: 'active', desc: 'This dashboard' },
-  ],
-  services: [
-    { name: 'OpenClaw Gateway', type: 'telegram', status: 'online' },
-    { name: 'HTTP Server :8080', type: 'http', status: 'online' },
-    { name: 'Cloudflare Tunnel', type: 'tunnel', status: 'online' },
-  ]
+const API_BASE = ''; // Same origin for now
+let data = JSON.parse(localStorage.getItem('owl_data') || '{}');
+if(!data.projects) data = {
+  server:{cpu:'--',mem:'--',disk:'--',uptime:'--',info:'Loading...'},
+  projects:[{name:'PAPER R6',path:'/web-sypes',status:'active',desc:'2D tactical shooter'},{name:'OWL Dashboard',path:'/dashboard',status:'active',desc:'This dashboard'}],
+  services:[{name:'OpenClaw Gateway',type:'telegram',status:'online'},{name:'HTTP Server :8080',type:'http',status:'online'},{name:'Cloudflare Tunnel',type:'tunnel',status:'online'}]
 };
+let masterKey=null,secrets=[];
+let cmdQueue=[],cmdLog=[];
 
-let data = JSON.parse(localStorage.getItem('owl_data') || JSON.stringify(DEFAULT_DATA));
-let masterKey = null;
-let secrets = [];
+// ===== CONNECTION =====
+async function checkConn(){
+  try{
+    const r=await fetch('/api/server');
+    if(r.ok){
+      document.getElementById('connStatus').style.color='var(--green)';
+      document.getElementById('connText').textContent='API connected';
+      return true;
+    }
+  }catch(e){}
+  document.getElementById('connStatus').style.color='var(--yellow)';
+  document.getElementById('connText').textContent='offline mode';
+  return false;
+}
 
 // ===== RENDER =====
-function render() {
-  // Server
-  const s = data.server;
-  document.getElementById('cpuVal').textContent = s.cpu;
-  document.getElementById('memVal').textContent = s.mem;
-  document.getElementById('diskVal').textContent = s.disk;
-  document.getElementById('upVal').textContent = s.uptime;
-  document.getElementById('loVal').textContent = s.load;
-  document.getElementById('serverInfo').textContent = s.info;
-
-  // Projects
-  const pl = document.getElementById('projectsList');
-  pl.innerHTML = data.projects.map((p,i) => `
-    <div class="item">
-      <div>
-        <div style="font-weight:500">${p.name}</div>
-        <div class="label">${p.path} — ${p.desc||''}</div>
-      </div>
-      <span class="status ${p.status==='active'?'online':'offline'}">${p.status}</span>
-      <button class="btn danger" style="padding:2px 6px;font-size:.6rem" onclick="deleteProject(${i})">✕</button>
-    </div>
-  `).join('');
-
-  // Services
-  const sl = document.getElementById('servicesList');
-  sl.innerHTML = data.services.map((s,i) => `
-    <div class="item">
-      <div>
-        <div style="font-weight:500">${s.name}</div>
-        <div class="label">${s.type}</div>
-      </div>
-      <span class="status ${s.status==='online'?'online':'offline'}">${s.status}</span>
-      <button class="btn danger" style="padding:2px 6px;font-size:.6rem" onclick="deleteService(${i})">✕</button>
-    </div>
-  `).join('');
-
+function render(){
+  const s=data.server;
+  document.getElementById('cpuVal').textContent=s.cpu;
+  document.getElementById('memVal').textContent=s.mem;
+  document.getElementById('diskVal').textContent=s.disk;
+  document.getElementById('upVal').textContent=s.uptime;
+  document.getElementById('serverInfo').textContent=s.info;
+  document.getElementById('projectsList').innerHTML=data.projects.map((p,i)=>`
+    <div class="item"><div><div style="font-weight:500">${p.name}</div><div class="label">${p.path} — ${p.desc||''}</div></div>
+    <span class="status ${p.status==='active'?'online':'offline'}">${p.status}</span>
+    <button class="btn danger" style="padding:2px 6px;font-size:.6rem" onclick="deleteProject(${i})">✕</button></div>`).join('');
+  document.getElementById('servicesList').innerHTML=data.services.map((s,i)=>`
+    <div class="item"><div><div style="font-weight:500">${s.name}</div><div class="label">${s.type}</div></div>
+    <span class="status ${s.status==='online'?'online':'offline'}">${s.status}</span>
+    <button class="btn danger" style="padding:2px 6px;font-size:.6rem" onclick="deleteService(${i})">✕</button></div>`).join('');
   checkVault();
   saveData();
 }
-
-function saveData() { localStorage.setItem('owl_data', JSON.stringify(data)); }
-
-function addProject() {
-  const name = document.getElementById('newProjName').value.trim();
-  const path = document.getElementById('newProjPath').value.trim();
-  if(!name) return;
-  data.projects.push({name,path,status:'active',desc:''});
-  document.getElementById('newProjName').value='';
-  document.getElementById('newProjPath').value='';
-  render();
-  showToast('Project added');
-}
+function saveData(){localStorage.setItem('owl_data',JSON.stringify(data));}
+function addProject(){const n=document.getElementById('newProjName').value.trim(),p=document.getElementById('newProjPath').value.trim();if(!n)return;data.projects.push({name:n,path:p,status:'active',desc:''});document.getElementById('newProjName').value='';document.getElementById('newProjPath').value='';render();}
 function deleteProject(i){data.projects.splice(i,1);render();}
-function addService(){
-  const name=document.getElementById('newSvcName').value.trim();
-  const type=document.getElementById('newSvcType').value;
-  if(!name) return;
-  data.services.push({name,type,status:'online'});
-  document.getElementById('newSvcName').value='';
-  render();
-  showToast('Service added');
-}
+function addService(){const n=document.getElementById('newSvcName').value.trim(),t=document.getElementById('newSvcType').value;if(!n)return;data.services.push({name:n,type:t,status:'online'});document.getElementById('newSvcName').value='';render();}
 function deleteService(i){data.services.splice(i,1);render();}
 
-// ===== VAULT =====
-async function deriveKey(password, salt) {
-  const enc = new TextEncoder();
-  const km = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'}, km, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+// ===== COMMANDS =====
+function switchTab(name,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById(name+'Tab').classList.add('active');
 }
-async function encrypt(data, password) {
-  const salt=crypto.getRandomValues(new Uint8Array(16));
-  const iv=crypto.getRandomValues(new Uint8Array(12));
+
+async function sendCommand(){
+  const type=document.getElementById('cmdType').value;
+  const input=document.getElementById('cmdInput').value.trim();
+  if(!input) return;
+  const cmd={id:Date.now().toString(36),type,payload:input,ts:Date.now()};
+  cmdQueue.push(cmd);
+  addLog('info','Queued: ['+type+'] '+input);
+  document.getElementById('cmdInput').value='';
+  updateQueueDisplay();
+  
+  // Try to send to API
+  try{
+    const r=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cmd)});
+    if(r.ok){addLog('ok','Sent to queue: '+cmd.id);}
+    else{addLog('err','API error: '+r.status);}
+  }catch(e){
+    addLog('err','Offline — command stored locally. Owl will pick it up.');
+  }
+}
+
+function addLog(type,msg){
+  const time=new Date().toLocaleTimeString();
+  cmdLog.push({time,type,msg});
+  const el=document.getElementById('cmdLog');
+  const cls=type==='ok'?'ok':type==='err'?'err':'info';
+  el.innerHTML+='<div><span class="time">['+time+']</span> <span class="'+cls+'">'+msg+'</span></div>';
+  el.scrollTop=el.scrollHeight;
+}
+
+function updateQueueDisplay(){
+  const el=document.getElementById('queueList');
+  if(!cmdQueue.length){el.innerHTML='Queue empty';return;}
+  el.innerHTML=cmdQueue.map(c=>'<div style="padding:4px 0;border-bottom:1px solid rgba(255,255,255,.05)"><span style="color:var(--pink)">['+c.type+']</span> '+c.payload+' <span style="color:var(--muted);font-size:.65rem">'+c.id+'</span></div>').join('');
+}
+
+// ===== VAULT =====
+async function deriveKey(password,salt){
+  const enc=new TextEncoder();
+  const km=await crypto.subtle.importKey('raw',enc.encode(password),'PBKDF2',false,['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:100000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+}
+async function encrypt(data,password){
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
   const key=await deriveKey(password,salt);
-  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv}, key, new TextEncoder().encode(JSON.stringify(data)));
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},key,new TextEncoder().encode(JSON.stringify(data)));
   const c=new Uint8Array(salt.length+iv.length+ct.byteLength);
   c.set(salt,0);c.set(iv,salt.length);c.set(new Uint8Array(ct),salt.length+iv.length);
   return btoa(String.fromCharCode(...c));
 }
-async function decrypt(ed, password) {
+async function decrypt(ed,password){
   const c=Uint8Array.from(atob(ed),x=>x.charCodeAt(0));
   const salt=c.slice(0,16),iv=c.slice(16,28),ct=c.slice(28);
   const key=await deriveKey(password,salt);
   const d=await crypto.subtle.decrypt({name:'AES-GCM',iv},key,ct);
   return JSON.parse(new TextDecoder().decode(d));
 }
-
-function checkVault() {
-  const stored=localStorage.getItem('owl_vault');
-  if(stored){document.getElementById('vaultSetup').style.display='none';document.getElementById('vaultLocked').style.display='';document.getElementById('vaultUnlocked').style.display='none';}
+function checkVault(){
+  const s=localStorage.getItem('owl_vault');
+  if(s){document.getElementById('vaultSetup').style.display='none';document.getElementById('vaultLocked').style.display='';document.getElementById('vaultUnlocked').style.display='none';}
   else{document.getElementById('vaultSetup').style.display='';document.getElementById('vaultLocked').style.display='none';document.getElementById('vaultUnlocked').style.display='none';}
 }
 async function setupVault(){
   const p1=document.getElementById('setupPass').value,p2=document.getElementById('setupPassConfirm').value;
-  if(!p1||p1!==p2){alert('Passwords do not match');return;}
-  if(p1.length<8){alert('Min 8 characters');return;}
-  masterKey=p1;secrets=[];
-  await saveVault();
-  document.getElementById('vaultSetup').style.display='none';
-  document.getElementById('vaultUnlocked').style.display='';
-  renderSecrets();
-  showToast('Vault created');
+  if(!p1||p1!==p2){alert('Passwords do not match');return;}if(p1.length<8){alert('Min 8 chars');return;}
+  masterKey=p1;secrets=[];await saveVault();
+  document.getElementById('vaultSetup').style.display='none';document.getElementById('vaultUnlocked').style.display='';renderSecrets();
 }
 async function unlockVault(){
-  const pass=document.getElementById('masterPass').value;
-  if(!pass) return;
-  try{
-    const stored=localStorage.getItem('owl_vault');
-    if(stored) secrets=await decrypt(stored,pass);
-    masterKey=pass;
-    document.getElementById('vaultLocked').style.display='none';
-    document.getElementById('vaultUnlocked').style.display='';
-    renderSecrets();
-  }catch(e){alert('Wrong password');}
+  const pass=document.getElementById('masterPass').value;if(!pass)return;
+  try{const s=localStorage.getItem('owl_vault');if(s)secrets=await decrypt(s,pass);masterKey=pass;document.getElementById('vaultLocked').style.display='none';document.getElementById('vaultUnlocked').style.display='';renderSecrets();}catch(e){alert('Wrong password');}
 }
-function lockVault(){
-  masterKey=null;secrets=[];
-  document.getElementById('vaultLocked').style.display='';
-  document.getElementById('vaultUnlocked').style.display='none';
-  document.getElementById('masterPass').value='';
-}
-async function saveVault(){
-  if(!masterKey){localStorage.removeItem('owl_vault');return;}
-  localStorage.setItem('owl_vault', await encrypt(secrets,masterKey));
-}
+function lockVault(){masterKey=null;secrets=[];document.getElementById('vaultLocked').style.display='';document.getElementById('vaultUnlocked').style.display='none';document.getElementById('masterPass').value='';}
+async function saveVault(){if(!masterKey){localStorage.removeItem('owl_vault');return;}localStorage.setItem('owl_vault',await encrypt(secrets,masterKey));}
 async function addSecret(){
-  if(!masterKey) return;
-  const name=document.getElementById('newSecName').value.trim();
-  const user=document.getElementById('newSecUser').value.trim();
-  const pass=document.getElementById('newSecPass').value;
-  if(!name) return;
-  secrets.push({name,user,pass,added:new Date().toLocaleDateString()});
-  await saveVault();
-  document.getElementById('newSecName').value='';
-  document.getElementById('newSecUser').value='';
-  document.getElementById('newSecPass').value='';
-  renderSecrets();
-  showToast('Secret added');
+  if(!masterKey)return;const n=document.getElementById('newSecName').value.trim(),u=document.getElementById('newSecUser').value.trim(),p=document.getElementById('newSecPass').value;if(!n)return;
+  secrets.push({name:n,user:u,pass:p,added:new Date().toLocaleDateString()});await saveVault();
+  document.getElementById('newSecName').value='';document.getElementById('newSecUser').value='';document.getElementById('newSecPass').value='';renderSecrets();
 }
-async function deleteSecret(i){
-  secrets.splice(i,1);
-  await saveVault();
-  renderSecrets();
-}
+async function deleteSecret(i){secrets.splice(i,1);await saveVault();renderSecrets();}
 function renderSecrets(){
   const tb=document.getElementById('secretsTable');
-  if(!secrets.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted)">No secrets stored</td></tr>';return;}
-  tb.innerHTML=secrets.map((s,i)=>`
-    <tr>
-      <td><strong>${s.name}</strong></td>
-      <td><span class="mono">${s.user||'—'}</span></td>
-      <td><span class="mono pass-hidden" id="pw${i}">••••••••</span> <button class="btn" style="padding:1px 4px;font-size:.6rem" onclick="togglePw(${i})">👁</button> <button class="btn secondary" style="padding:1px 4px;font-size:.6rem" onclick="copyPw('${s.pass?.replace(/'/g,"\\'")}')">📋</button></td>
-      <td style="color:var(--muted);font-size:.7rem">${s.added||''}</td>
-      <td><button class="btn danger" style="padding:1px 4px;font-size:.6rem" onclick="deleteSecret(${i})">✕</button></td>
-    </tr>
+  if(!secrets.length){tb.innerHTML='<tr><td colspan="4" style="text-align:center;color:var(--muted)">No secrets</td></tr>';return;}
+  tb.innerHTML=secrets.map((s,i)=>`<tr>
+    <td><strong>${s.name}</strong></td>
+    <td><span class="mono">${s.user||'—'}</span></td>
+    <td><span class="mono pass-hidden" id="pw${i}">••••••••</span> <button class="btn" style="padding:1px 4px;font-size:.6rem" onclick="togglePw(${i})">👁</button> <button class="btn secondary" style="padding:1px 4px;font-size:.6rem" onclick="copyPw('${s.pass?.replace(/'/g,"\\'")}')">📋</button></td>
+    <td><button class="btn danger" style="padding:1px 4px;font-size:.6rem" onclick="deleteSecret(${i})">✕</button></td>
   `).join('');
 }
-function togglePw(i){
-  const el=document.getElementById('pw'+i);
-  if(el.dataset.revealed){el.textContent='••••••••';el.dataset.revealed='';el.classList.add('pass-hidden');}
-  else{el.textContent=secrets[i].pass||'';el.dataset.revealed='1';el.classList.remove('pass-hidden');}
-}
-function copyPw(pw){
-  navigator.clipboard.writeText(pw).then(()=>showToast('Copied to clipboard'));
-}
-function showToast(msg){
-  const t=document.createElement('div');
-  t.className='toast';t.textContent=msg;
-  document.body.appendChild(t);
-  setTimeout(()=>t.remove(),2000);
+function togglePw(i){const el=document.getElementById('pw'+i);if(el.dataset.revealed){el.textContent='••••••••';el.dataset.revealed='';el.classList.add('pass-hidden');}else{el.textContent=secrets[i].pass||'';el.dataset.revealed='1';el.classList.remove('pass-hidden');}}
+function copyPw(pw){navigator.clipboard.writeText(pw);}
+
+// ===== POLL FOR RESULTS =====
+async function pollResults(){
+  try{
+    const r=await fetch('/api/ping');
+    if(r.ok){
+      const d=await r.json();
+      if(d.results&&d.results.length){
+        d.results.forEach(res=>{
+          addLog(res.ok?'ok':'err','['+res.cmdId+'] '+res.output);
+          // Remove from queue
+          cmdQueue=cmdQueue.filter(c=>c.id!==res.cmdId);
+          updateQueueDisplay();
+          // Show in output tab
+          const o=document.getElementById('outputArea');
+          o.innerHTML+='<div><span class="time">['+new Date().toLocaleTimeString()+']</span> <span class="'+(res.ok?'ok':'err')+'">'+res.output+'</span></div>';
+          o.scrollTop=o.scrollHeight;
+        });
+      }
+    }
+  }catch(e){}
 }
 
 // Init
 render();
+checkConn();
+setInterval(pollResults,5000);
 </script>
 </body>
 </html>
